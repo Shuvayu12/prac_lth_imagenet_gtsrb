@@ -1,0 +1,16 @@
+data:
+  dataset: gtsrb
+  root: ./data/GTSRB
+  num_classes: 43
+model: resnet18
+optim:
+  epochs: 160
+  lr: 0.1
+  batch_size: 128
+  momentum: 0.9
+  weight_decay: 0.0001
+prune:
+  method: prac
+  sparsity: 0.8
+  start_epoch: 10
+  frequency: 5

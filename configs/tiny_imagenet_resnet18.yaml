@@ -1,0 +1,16 @@
+data:
+  dataset: tiny_imagenet
+  root: ./data/tiny-imagenet
+  num_classes: 200
+model: resnet18
+optim:
+  epochs: 160
+  lr: 0.1
+  batch_size: 64
+  momentum: 0.9
+  weight_decay: 0.0005
+prune:
+  method: prac
+  sparsity: 0.8
+  start_epoch: 10
+  frequency: 5

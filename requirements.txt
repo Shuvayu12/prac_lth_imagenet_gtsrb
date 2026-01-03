@@ -1,0 +1,12 @@
+advertorch
+matplotlib
+numpy
+pandas
+Pillow
+torch
+torchvision
+pyyaml
+advertorch
+gitpython
+pandas
+
