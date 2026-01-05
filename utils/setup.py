@@ -6,6 +6,7 @@ from dataset import *
 
 from models.vgg import vgg16_bn
 from models.resnet import resnet18, resnet50, BasicBlock
+from models.resnet_cifar import ResNet18_CIFAR
 from models.resnets import resnet20, resnet56
 from models.resnet_tiny_imagenet import ResNet18_TinyImageNet
 from models.resnet_gtsrb import ResNet18_GTSRB
@@ -80,6 +81,10 @@ def setup_model_dataset(args, if_train_set=False):
         print('build model: ResNet18_GTSRB')
         model = ResNet18_GTSRB(num_classes=classes)
 
+    elif args.arch == 'res18_cifar':
+        print('build model: ResNet18_CIFAR')
+        model = ResNet18_CIFAR(num_classes=classes)
+
     else:
         raise ValueError('unknown model')
 
@@ -151,6 +156,10 @@ def setup_model_dataset_PIE(args):
         print('build model: ResNet18_GTSRB')
         model = ResNet18_GTSRB(num_classes=classes)
 
+    elif args.arch == 'res18_cifar':
+        print('build model: ResNet18_CIFAR')
+        model = ResNet18_CIFAR(num_classes=classes)
+        
     else:
         raise ValueError('unknown model')
 

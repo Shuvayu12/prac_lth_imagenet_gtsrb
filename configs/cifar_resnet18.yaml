@@ -1,0 +1,16 @@
+data:
+  dataset: cifar10
+  root: ./data
+  num_classes: 10
+model: resnet18_cifar
+optim:
+  epochs: 160
+  lr: 0.1
+  batch_size: 128
+  momentum: 0.9
+  weight_decay: 1e-4
+prune:
+  method: prac
+  sparsity: 0.8
+  start_epoch: 10
+  frequency: 5
