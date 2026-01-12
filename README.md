@@ -73,7 +73,48 @@ python -u main_train.py \
 	--mask_dir PrAC_lt_cifar10_res20s/1checkpoint.pth.tar \ # sparsity=20%
 	--save_dir retrain_PrAC_lt_cifar10_res20s/1
 ```
+#### Fixing fast_adaptive_boundary.py
 
+```
+import site
+site_packages = site.getsitepackages()[0]
+advertorch_path = os.path.join(site_packages, "advertorch/attacks/fast_adaptive_boundary.py")
+
+patch_code = """from torch import Tensor
+
+def zero_gradients(x):
+    if isinstance(x, Tensor):
+        if x.grad is not None:
+            x.grad.detach_()
+            x.grad.zero_()
+"""
+
+if os.path.exists(advertorch_path):
+    print(f"Found advertorch at: {advertorch_path}")
+    with open(advertorch_path, "r") as f:
+        content = f.read()
+
+    if "from torch.autograd.gradcheck import zero_gradients" in content:
+        print("Applying patch to fix zero_gradients import...")
+        content = content.replace(
+            "from torch.autograd.gradcheck import zero_gradients",
+            patch_code
+        )
+        with open(advertorch_path, "w") as f:
+            f.write(content)
+        print("Patch applied.")
+    else:
+        print("Patch not needed.")
+else:
+    print(f"Warning: advertorch not found at {advertorch_path}")
+    print("Searching for advertorch installation...")
+    # Alternative search
+    import subprocess
+    result = subprocess.run(['find', '/usr', '-name', 'fast_adaptive_boundary.py', '-path', '*/advertorch/attacks/*'],
+                          capture_output=True, text=True, timeout=10)
+    if result.stdout:
+        print(f"Found at: {result.stdout.strip()}")
+```
 ## Citation
 
 ```
