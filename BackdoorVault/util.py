@@ -2,8 +2,10 @@ import numpy as np
 import os
 import sys
 import torch
+import pandas as pd
+from PIL import Image
 from dfst import DFST
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
 
 # Import external ResNet models from parent directory
@@ -79,6 +81,37 @@ def get_processing(dataset, augment=True, tensor=False, size=None):
     deprocess  = transforms.Compose([unnormalize])
     return preprocess, deprocess
 
+
+class GTSRBTestDataset(Dataset):
+    """GTSRB test dataset with flat structure and CSV labels."""
+    def __init__(self, root_dir, csv_file=None, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        
+        # Get all ppm files
+        self.images = sorted([f for f in os.listdir(root_dir) if f.endswith('.ppm')])
+        
+        # Load labels if CSV exists
+        if csv_file and os.path.exists(csv_file):
+            df = pd.read_csv(csv_file, sep=';')
+            self.labels = df['ClassId'].values
+        else:
+            # If no CSV, assume labels are not available (use -1 as placeholder)
+            self.labels = [-1] * len(self.images)
+    
+    def __len__(self):
+        return len(self.images)
+    
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.root_dir, self.images[idx])
+        image = Image.open(img_path).convert('RGB')
+        label = self.labels[idx]
+        
+        if self.transform:
+            image = self.transform(image)
+        
+        return image, label
+
     
 def get_dataset(args, train=True, augment=True):
     transform, _ = get_processing(args.dataset, train & augment)
@@ -86,10 +119,15 @@ def get_dataset(args, train=True, augment=True):
         dataset = datasets.CIFAR10(args.datadir, train, transform,
                                    download=False)
     elif args.dataset == 'gtsrb':
-        # Use ImageFolder with data/GTSRB/Train/ or data/GTSRB/Test/
-        split_dir = 'Train' if train else 'Test'
-        data_path = os.path.join(args.datadir, 'GTSRB', split_dir)
-        dataset = datasets.ImageFolder(data_path, transform)
+        if train:
+            # Train: use ImageFolder with data/GTSRB/Train/ (has class subfolders)
+            data_path = os.path.join(args.datadir, 'GTSRB', 'Train')
+            dataset = datasets.ImageFolder(data_path, transform)
+        else:
+            # Test: use custom dataset for flat structure with CSV labels
+            test_path = os.path.join(args.datadir, 'GTSRB', 'Test')
+            csv_file = os.path.join(test_path, 'Test.csv')
+            dataset = GTSRBTestDataset(test_path, csv_file, transform)
     elif args.dataset == 'tiny_imagenet':
         # Use ImageFolder with data/tiny-imagenet/train/ or data/tiny-imagenet/val/
         split_dir = 'train' if train else 'val'
