@@ -18,13 +18,14 @@ from models import ResNet18_CIFAR, ResNet18_GTSRB, ResNet18_TinyImageNet
 
 EPSILON = 1e-7
 
-_dataset_name = ['default', 'cifar10', 'gtsrb', 'imagenet']
+_dataset_name = ['default', 'cifar10', 'gtsrb', 'imagenet', 'tiny_imagenet']
 
 _mean = {
     'default':  [0.5, 0.5, 0.5],
     'cifar10':  [0.4914, 0.4822, 0.4465],
     'gtsrb':    [0.3337, 0.3064, 0.3171],
     'imagenet': [0.485, 0.456, 0.406],
+    'tiny_imagenet': [0.485, 0.456, 0.406],
 }
 
 _std = {
@@ -32,6 +33,7 @@ _std = {
     'cifar10':  [0.2023, 0.1994, 0.2010],
     'gtsrb':    [0.2672, 0.2564, 0.2629],
     'imagenet': [0.229, 0.224, 0.225],
+    'tiny_imagenet': [0.229, 0.224, 0.225],
 }
 
 _size = {
