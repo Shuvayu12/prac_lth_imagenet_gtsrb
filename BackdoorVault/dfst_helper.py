@@ -39,8 +39,11 @@ def train_gan(attack, train_loader):
             size = min(x_a.size(0), x_b.size(0))
             x_a, x_b = x_a[:size], x_b[:size]
 
-            label_real = torch.ones( [size, 1, 2, 2]).to(attack.device)
-            label_fake = torch.zeros([size, 1, 2, 2]).to(attack.device)
+            # Get discriminator output shape dynamically
+            with torch.no_grad():
+                disc_out_shape = attack.backdoor.disc_a(x_a).shape[2:]  # Get spatial dims
+            label_real = torch.ones( [size, 1, *disc_out_shape]).to(attack.device)
+            label_fake = torch.zeros([size, 1, *disc_out_shape]).to(attack.device)
 
             # Generate images
             b_fake = normalize(attack.backdoor.genr_a2b(x_a))
