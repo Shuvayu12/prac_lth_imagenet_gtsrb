@@ -3,6 +3,7 @@ DFST (Deep Feature Space Trojan) Helper module.
 Contains CycleGAN training functionality for DFST backdoor attack.
 """
 import sys
+import os
 import torch
 from dataset import ImageDataset
 from torch.utils.data import DataLoader
@@ -93,6 +94,7 @@ def train_gan(attack, train_loader):
             print()
             a_real = unnormalize(x_a)
             b_fake = unnormalize(b_fake)
+            os.makedirs('data/sample', exist_ok=True)
             for i in range(min(10, size)):
                 save_image(a_real[i], f'data/sample/gan_{i}_ori.png')
                 save_image(b_fake[i], f'data/sample/gan_{i}_rec.png')
