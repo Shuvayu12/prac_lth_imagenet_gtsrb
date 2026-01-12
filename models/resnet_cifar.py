@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.resnet import BasicBlock, conv3x3
+from .resnet import BasicBlock, conv3x3
 
 class ResNet18_CIFAR(nn.Module):
     def __init__(self, num_classes=10, zero_init_residual=False,

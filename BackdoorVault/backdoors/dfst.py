@@ -3,7 +3,7 @@ DFST (Deep Feature Space Trojan) Backdoor Attack Module.
 Uses CycleGAN for style transfer based backdoor injection.
 """
 import torch
-from models.cyclegan import CycleGenerator, CycleDiscriminator
+from cyclegan import CycleGenerator, CycleDiscriminator
 
 
 class DFST:

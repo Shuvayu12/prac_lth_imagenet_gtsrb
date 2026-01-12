@@ -1,5 +1,5 @@
 import torch.nn as nn
-from models.resnet import BasicBlock, conv3x3
+from .resnet import BasicBlock, conv3x3
 
 class ResNet18_TinyImageNet(nn.Module):
     def __init__(self, num_classes=200, zero_init_residual=False,
