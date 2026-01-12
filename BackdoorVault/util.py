@@ -184,7 +184,7 @@ def get_backdoor(attack, shape, normalize=None, device=None, args=None):
         backdoor = DFST(normalize, device=device)
         genr_path = f'{base_path}_dfst_generator.pt'
         if os.path.exists(genr_path):
-            backdoor.genr_a2b = torch.load(genr_path, map_location=device)
+            backdoor.genr_a2b = torch.load(genr_path, map_location=device, weights_only=False)
     else:
         backdoor = None
     return backdoor

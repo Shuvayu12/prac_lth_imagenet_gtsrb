@@ -97,7 +97,7 @@ def train(args):
 def test(args):
     """Test a trained model for accuracy and ASR."""
     model_filepath = f'ckpt/{args.dataset}_{args.network}_{args.suffix}.pt'
-    model = torch.load(model_filepath, map_location=DEVICE)
+    model = torch.load(model_filepath, map_location=DEVICE, weights_only=False)
     model.eval()
 
     test_loader = get_loader(args, train=False)
