@@ -6,8 +6,11 @@ from backdoors import DFST
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-# Import external ResNet models
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Import external ResNet models from parent directory
+_parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
 from models.resnet_cifar import ResNet18_CIFAR
 from models.resnet_gtsrb import ResNet18_GTSRB
 from models.resnet_tiny_imagenet import ResNet18_TinyImageNet
