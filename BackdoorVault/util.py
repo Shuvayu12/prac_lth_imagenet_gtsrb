@@ -2,18 +2,26 @@ import numpy as np
 import os
 import sys
 import torch
+import importlib.util
 from backdoors import DFST
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-# Import external ResNet models from parent directory
-_parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if _parent_dir not in sys.path:
-    sys.path.insert(0, _parent_dir)
+# Import external ResNet models from parent directory using direct file loading
+def _load_module_from_file(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-from models.resnet_cifar import ResNet18_CIFAR
-from models.resnet_gtsrb import ResNet18_GTSRB
-from models.resnet_tiny_imagenet import ResNet18_TinyImageNet
+_parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+_resnet_cifar = _load_module_from_file('resnet_cifar', os.path.join(_parent_dir, 'models', 'resnet_cifar.py'))
+_resnet_gtsrb = _load_module_from_file('resnet_gtsrb', os.path.join(_parent_dir, 'models', 'resnet_gtsrb.py'))
+_resnet_tiny = _load_module_from_file('resnet_tiny_imagenet', os.path.join(_parent_dir, 'models', 'resnet_tiny_imagenet.py'))
+
+ResNet18_CIFAR = _resnet_cifar.ResNet18_CIFAR
+ResNet18_GTSRB = _resnet_gtsrb.ResNet18_GTSRB
+ResNet18_TinyImageNet = _resnet_tiny.ResNet18_TinyImageNet
 
 
 EPSILON = 1e-7
