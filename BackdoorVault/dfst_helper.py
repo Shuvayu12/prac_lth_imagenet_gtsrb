@@ -8,7 +8,8 @@ import torch
 from dataset import ImageDataset
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
-from util import get_norm
+from torchvision import transforms
+from util import get_norm, get_size
 
 
 def train_gan(attack, train_loader):
@@ -27,7 +28,13 @@ def train_gan(attack, train_loader):
     attack.backdoor.disc_b.train()
 
     normalize, unnormalize = attack.processing
-    style_set = ImageDataset('data/sunrise', normalize)
+    # Get target size from training data and create style transform
+    img_size = get_size(attack.args.dataset)
+    style_transform = transforms.Compose([
+        transforms.Resize(img_size),
+        normalize
+    ])
+    style_set = ImageDataset('data/sunrise', style_transform)
     style_loader = DataLoader(dataset=style_set, num_workers=4, shuffle=True,
                               batch_size=train_loader.batch_size)
     crit_mse = torch.nn.MSELoss()

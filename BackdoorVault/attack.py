@@ -14,6 +14,7 @@ class Attack:
     
     def __init__(self, model, args, device=None):
         self.device = device
+        self.args = args
         self.attack = args.attack
         self.target = args.target
         self.poison_rate = args.poison_rate
