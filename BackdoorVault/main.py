@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from attack import Attack
 from dataset import PoisonDataset, ImageDataset
-from helper import train_gan
+from dfst_helper import train_gan
 from util import get_model, get_loader, get_dataset, get_norm, get_size, get_classes, get_backdoor
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

@@ -2,7 +2,7 @@ import numpy as np
 import os
 import sys
 import torch
-from backdoors import DFST
+from dfst import DFST
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 

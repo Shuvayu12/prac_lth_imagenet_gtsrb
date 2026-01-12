@@ -4,7 +4,7 @@ Simplified to only support DFST attack.
 """
 import os
 import torch
-from backdoors import DFST
+from dfst import DFST
 from dataset import PoisonDataset
 from util import get_size, get_norm, get_dataset
 
