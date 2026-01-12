@@ -85,10 +85,12 @@ def get_dataset(args, train=True, augment=True):
         dataset = datasets.CIFAR10(args.datadir, train, transform,
                                    download=False)
     elif args.dataset == 'gtsrb':
-        split = 'train' if train else 'test'
-        dataset = datasets.GTSRB(args.datadir, split, transform, download=False)
+        # Use ImageFolder with data/GTSRB/Train/ or data/GTSRB/Test/
+        split_dir = 'Train' if train else 'Test'
+        data_path = os.path.join(args.datadir, 'GTSRB', split_dir)
+        dataset = datasets.ImageFolder(data_path, transform)
     elif args.dataset == 'tiny_imagenet':
-        # For Tiny ImageNet, use ImageFolder
+        # Use ImageFolder with data/tiny-imagenet/train/ or data/tiny-imagenet/val/
         split_dir = 'train' if train else 'val'
         data_path = os.path.join(args.datadir, 'tiny-imagenet', split_dir)
         dataset = datasets.ImageFolder(data_path, transform)
