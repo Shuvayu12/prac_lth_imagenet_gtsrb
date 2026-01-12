@@ -73,6 +73,9 @@ def get_processing(dataset, augment=True, tensor=False, size=None):
     if augment:
         transforms_list.append(transforms.RandomCrop(_size[dataset], padding=4))
         transforms_list.append(transforms.RandomHorizontalFlip())
+    else:
+        # For test data, resize to consistent size
+        transforms_list.append(transforms.Resize(_size[dataset]))
     if not tensor:
         transforms_list.append(transforms.ToTensor())
     transforms_list.append(normalize)
