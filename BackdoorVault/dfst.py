@@ -39,4 +39,6 @@ class DFST:
         Returns:
             Normalized style-transferred images
         """
-        return self.normalize(self.genr_a2b(inputs))
+        inputs = inputs.to(self.device)
+        output = self.normalize(self.genr_a2b(inputs))
+        return output.cpu()
