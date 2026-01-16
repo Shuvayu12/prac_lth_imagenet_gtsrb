@@ -4,7 +4,8 @@ Contains PoisonDataset and ImageDataset for DFST style transfer attack.
 """
 import numpy as np
 import os
-from torch.utils.data import Dataset
+import torch
+from torch.utils.data import Dataset, DataLoader
 from torchvision.io import read_image
 
 
@@ -105,3 +106,61 @@ class ImageDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         return image
+
+
+class CachedPoisonDataset(Dataset):
+    """Pre-cached poisoned dataset for fast ASR evaluation.
+    
+    Generates all poisoned images once and stores them in memory,
+    avoiding expensive on-the-fly CycleGAN inference during each evaluation.
+    """
+    
+    def __init__(self, dataset, target, backdoor, device, batch_size=64, max_samples=None):
+        """
+        Args:
+            dataset: Base dataset to poison
+            target: Target label for poisoned samples
+            backdoor: DFST backdoor instance
+            device: Torch device
+            batch_size: Batch size for generating poisoned images
+            max_samples: Maximum number of samples to cache (None = all)
+        """
+        print("Pre-caching poisoned images for ASR evaluation...")
+        self.target = target
+        
+        # Filter out samples that already have target label
+        indices = []
+        for i in range(len(dataset)):
+            _, lbl = dataset[i]
+            if lbl != target:
+                indices.append(i)
+            if max_samples and len(indices) >= max_samples:
+                break
+        
+        # Generate poisoned images in batches
+        all_images = []
+        temp_loader = DataLoader(
+            torch.utils.data.Subset(dataset, indices),
+            batch_size=batch_size,
+            num_workers=4,
+            pin_memory=True
+        )
+        
+        backdoor.genr_a2b.eval()
+        with torch.no_grad():
+            for batch_idx, (imgs, _) in enumerate(temp_loader):
+                imgs = imgs.to(device)
+                poisoned = backdoor.inject(imgs)
+                all_images.append(poisoned.cpu())
+                if (batch_idx + 1) % 10 == 0:
+                    print(f"  Cached {(batch_idx + 1) * batch_size} / {len(indices)} images")
+        
+        self.images = torch.cat(all_images, dim=0)
+        self.labels = torch.full((len(self.images),), target, dtype=torch.long)
+        print(f"Cached {len(self.images)} poisoned images for ASR evaluation")
+    
+    def __len__(self):
+        return len(self.images)
+    
+    def __getitem__(self, index):
+        return self.images[index], self.labels[index]

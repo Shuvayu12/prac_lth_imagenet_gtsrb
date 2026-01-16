@@ -30,6 +30,7 @@ class DFST:
         self.disc_a = torch.nn.DataParallel(self.disc_a)
         self.disc_b = torch.nn.DataParallel(self.disc_b)
 
+    @torch.no_grad()
     def inject(self, inputs):
         """Inject DFST backdoor by applying style transfer.
         

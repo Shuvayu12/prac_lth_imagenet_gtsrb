@@ -18,7 +18,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from attack import Attack
-from dataset import PoisonDataset, ImageDataset
+from dataset import PoisonDataset, ImageDataset, CachedPoisonDataset
 from dfst_helper import train_gan
 from util import get_model, get_loader, get_dataset, get_norm, get_size, get_classes, get_backdoor
 
@@ -132,11 +132,9 @@ def poison(args):
     attack = Attack(model, args, device=DEVICE)
 
     train_loader  = DataLoader(dataset=attack.train_set, num_workers=4,
-                               batch_size=args.batch_size, shuffle=True)
-    poison_loader = DataLoader(dataset=attack.poison_set, num_workers=0,
-                               batch_size=args.batch_size)
+                               batch_size=args.batch_size, shuffle=True, pin_memory=True)
     test_loader   = DataLoader(dataset=attack.test_set, num_workers=4,
-                               batch_size=args.batch_size)
+                               batch_size=args.batch_size, pin_memory=True)
 
     save_path = f'ckpt/{args.dataset}_{args.network}_{args.attack}.pt'
 
@@ -144,6 +142,18 @@ def poison(args):
     if args.attack == 'dfst':
         train_gan(attack, train_loader)
         torch.save(attack.backdoor.genr_a2b, f'{save_path[:-3]}_generator.pt')
+
+    # Create cached poison dataset for fast ASR evaluation AFTER GAN is trained
+    # This pre-generates all poisoned images once instead of on-the-fly each epoch
+    cached_poison_set = CachedPoisonDataset(
+        dataset=attack.test_set,
+        target=args.target,
+        backdoor=attack.backdoor,
+        device=DEVICE,
+        batch_size=args.batch_size
+    )
+    poison_loader = DataLoader(dataset=cached_poison_set, num_workers=4,
+                               batch_size=args.batch_size, pin_memory=True)
 
     best_acc = 0
     best_asr = 0
