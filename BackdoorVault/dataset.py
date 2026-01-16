@@ -128,34 +128,44 @@ class CachedPoisonDataset(Dataset):
         print("Pre-caching poisoned images for ASR evaluation...")
         self.target = target
         
-        # Filter out samples that already have target label
-        indices = []
-        for i in range(len(dataset)):
-            _, lbl = dataset[i]
-            if lbl != target:
-                indices.append(i)
-            if max_samples and len(indices) >= max_samples:
-                break
-        
-        # Generate poisoned images in batches
-        all_images = []
+        # Use a temporary DataLoader to iterate through the dataset efficiently
         temp_loader = DataLoader(
-            torch.utils.data.Subset(dataset, indices),
+            dataset,
             batch_size=batch_size,
-            num_workers=4,
-            pin_memory=True
+            num_workers=0,  # Use 0 for compatibility
+            shuffle=False
         )
+        
+        # Generate poisoned images in batches, filtering out target-labeled samples
+        all_images = []
+        all_labels = []
+        total_cached = 0
         
         backdoor.genr_a2b.eval()
         with torch.no_grad():
-            for batch_idx, (imgs, _) in enumerate(temp_loader):
-                imgs = imgs.to(device)
+            for batch_idx, (imgs, lbls) in enumerate(temp_loader):
+                # Filter out samples with target label
+                mask = lbls != target
+                if mask.sum() == 0:
+                    continue
+                    
+                imgs = imgs[mask].to(device)
                 poisoned = backdoor.inject(imgs)
                 all_images.append(poisoned.cpu())
+                total_cached += imgs.size(0)
+                
                 if (batch_idx + 1) % 10 == 0:
-                    print(f"  Cached {(batch_idx + 1) * batch_size} / {len(indices)} images")
+                    print(f"  Cached {total_cached} images...")
+                
+                if max_samples and total_cached >= max_samples:
+                    break
+        
+        if len(all_images) == 0:
+            raise RuntimeError(f"No images found to poison (all have target label {target}?)")
         
         self.images = torch.cat(all_images, dim=0)
+        if max_samples:
+            self.images = self.images[:max_samples]
         self.labels = torch.full((len(self.images),), target, dtype=torch.long)
         print(f"Cached {len(self.images)} poisoned images for ASR evaluation")
     
