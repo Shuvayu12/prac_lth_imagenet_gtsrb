@@ -20,6 +20,7 @@ if _backdoor_vault_path not in sys.path:
 # Import from BackdoorVault explicitly
 from BackdoorVault.dfst import DFST
 from BackdoorVault.dataset import PoisonDataset
+from BackdoorVault.util import GTSRBTestDataset
 
 
 def get_dfst_paths(dataset):
@@ -83,11 +84,20 @@ def setup_poison_loader(args, device):
         test_set = datasets.CIFAR100(root=args.data, train=False, download=False,
                                       transform=transforms.ToTensor())
     elif args.dataset == 'gtsrb':
-        test_set = datasets.GTSRB(root=args.data, split='test', download=False,
-                                   transform=transforms.Compose([
-                                       transforms.Resize((32, 32)),
-                                       transforms.ToTensor()
-                                   ]))
+        # Use custom GTSRBTestDataset for flat structure with CSV labels
+        test_path = os.path.join(args.data, 'GTSRB', 'Test')
+        csv_file = os.path.join(test_path, 'GT-final_test.csv')
+        # Try alternate CSV name if first doesn't exist
+        if not os.path.exists(csv_file):
+            csv_file = os.path.join(test_path, 'Test.csv')
+        test_set = GTSRBTestDataset(
+            root_dir=test_path,
+            csv_file=csv_file,
+            transform=transforms.Compose([
+                transforms.Resize((32, 32)),
+                transforms.ToTensor()
+            ])
+        )
     elif args.dataset == 'tiny-imagenet':
         test_set = datasets.ImageFolder(
             root=os.path.join(args.data, 'tiny-imagenet', 'val'),
