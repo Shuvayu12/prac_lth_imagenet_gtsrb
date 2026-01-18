@@ -27,6 +27,7 @@ from advertorch.utils import NormalizeByChannelMeanStd
 
 from utils.pruner import *
 from utils.setup import *
+from utils.dfst import setup_poison_loader, convert_dfst_to_prac_checkpoint
 
 parser = argparse.ArgumentParser(description='PyTorch Iterative Pruning')
 
@@ -40,6 +41,7 @@ parser.add_argument('--save_dir', help='The directory used to save the trained m
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--resume', action="store_true", help="resume from checkpoint")
 parser.add_argument('--checkpoint', type=str, default=None, help='checkpoint file')
+parser.add_argument('--dfst', action="store_true", help="Enable DFST backdoor ASR evaluation")
 
 ##################################### training setting #################################################
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
@@ -80,6 +82,27 @@ def main():
     model, train_dataset, val_loader, test_loader, train_number = setup_model_dataset(args, if_train_set=True)
     model.cuda()
 
+    # Setup DFST backdoor for ASR evaluation if enabled
+    poison_loader = None
+    dfst_checkpoint = None
+    if args.dfst:
+        print('\n' + '='*60)
+        print('DFST BACKDOOR MODE ENABLED')
+        print('='*60)
+        device = torch.device('cuda:' + str(args.gpu))
+        
+        # Convert DFST model to PrAC checkpoint format
+        dfst_checkpoint, dfst_model = convert_dfst_to_prac_checkpoint(args, device)
+        
+        # Replace model with DFST model
+        model = dfst_model
+        model.cuda()
+        
+        # Setup poison loader for ASR evaluation
+        poison_loader = setup_poison_loader(args, device)
+        print(f'[DFST] Poison loader size: {len(poison_loader.dataset)}')
+        print('='*60 + '\n')
+
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     decreasing_lr = list(map(int, args.decreasing_lr.split(',')))
 
@@ -106,6 +129,9 @@ def main():
         best_sa = checkpoint['best_sa']
         start_epoch = checkpoint['epoch']
         all_result = checkpoint['result']
+        # Ensure ASR key exists for backward compatibility
+        if 'asr' not in all_result:
+            all_result['asr'] = []
         start_state = checkpoint['state']
         example_wise_prediction = checkpoint['prediction']
         sequence = checkpoint['sequence']
@@ -130,11 +156,35 @@ def main():
         print('loading state:', start_state)
         print('loading from epoch: ',start_epoch, 'best_sa=', best_sa)
 
+    elif args.dfst and dfst_checkpoint is not None:
+        # Use converted DFST checkpoint
+        print('[DFST] Using converted DFST checkpoint as starting point')
+        model.load_state_dict(dfst_checkpoint['state_dict'])
+        initalization = dfst_checkpoint['init_weight']
+        
+        all_result = dfst_checkpoint['result']
+        example_wise_prediction = dfst_checkpoint['prediction']
+        remain_para = dfst_checkpoint['remain_para']
+        distance_queue = dfst_checkpoint['distance_queue']
+        last_mask = dfst_checkpoint['last_mask']
+        start_record = dfst_checkpoint['start_record']
+        sequence = dfst_checkpoint['sequence']
+        
+        start_epoch = 0
+        start_state = 0
+        
+        # Reinitialize optimizer for the loaded model
+        optimizer = torch.optim.SGD(model.parameters(), args.lr,
+                                    momentum=args.momentum,
+                                    weight_decay=args.weight_decay)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=decreasing_lr, gamma=0.1)
+
     else:
         all_result = {}
         all_result['train'] = []
         all_result['test_ta'] = []
         all_result['ta'] = []
+        all_result['asr'] = []  # Attack Success Rate for DFST
 
         example_wise_prediction = []
         remain_para = cnt_model_para(model)
@@ -173,6 +223,16 @@ def main():
             tacc = validate(val_loader, model, criterion)
             # evaluate on test set
             test_tacc = validate(test_loader, model, criterion)
+            
+            # evaluate ASR (Attack Success Rate) if DFST is enabled
+            if args.dfst and poison_loader is not None:
+                print('\n--- Evaluating ASR (Attack Success Rate) ---')
+                tasr = validate(poison_loader, model, criterion)
+                print(f'[DFST] ASR: {tasr:.3f}%')
+                all_result['asr'].append(tasr)
+            else:
+                tasr = 0.0
+                all_result['asr'].append(tasr)
 
             scheduler.step()
 
@@ -219,11 +279,18 @@ def main():
                 'start_record': start_record
             }, is_SA_best=is_best_sa, pruning=state, save_path=args.save_dir)
         
+            plt.figure(figsize=(10, 6))
             plt.plot(all_result['train'], label='train_acc')
             plt.plot(all_result['ta'], label='val_acc')
             plt.plot(all_result['test_ta'], label='test_acc')
+            if args.dfst and len(all_result['asr']) > 0:
+                plt.plot(all_result['asr'], label='ASR', linestyle='--', color='red', linewidth=2)
+            plt.xlabel('Epoch')
+            plt.ylabel('Accuracy (%)')
+            plt.title(f'Training Progress - Pruning State {state}')
             plt.legend()
-            plt.savefig(os.path.join(args.save_dir, str(state)+'net_train.png'))
+            plt.grid(True, alpha=0.3)
+            plt.savefig(os.path.join(args.save_dir, str(state)+'net_train.png'), dpi=150)
             plt.close()
 
             if flag_break:
@@ -232,11 +299,16 @@ def main():
         #report result
         check_sparsity(model)
         print('* best SA={}'.format(all_result['test_ta'][np.argmax(np.array(all_result['ta']))]))
+        if args.dfst and len(all_result['asr']) > 0:
+            best_idx = np.argmax(np.array(all_result['ta']))
+            print('* ASR at best SA epoch = {:.3f}%'.format(all_result['asr'][best_idx]))
+            print('* Final ASR = {:.3f}%'.format(all_result['asr'][-1]))
 
         all_result = {}
         all_result['train'] = []
         all_result['test_ta'] = []
         all_result['ta'] = []
+        all_result['asr'] = []  # Reset ASR for next pruning state
 
         best_sa = 0
         start_epoch = 0
