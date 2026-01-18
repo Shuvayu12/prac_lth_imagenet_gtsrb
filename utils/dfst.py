@@ -12,10 +12,14 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from copy import deepcopy
 
-# Add BackdoorVault to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'BackdoorVault'))
-from dfst import DFST
-from dataset import PoisonDataset
+# Add BackdoorVault to path FIRST (before other imports that might conflict)
+_backdoor_vault_path = os.path.join(os.path.dirname(__file__), '..', 'BackdoorVault')
+if _backdoor_vault_path not in sys.path:
+    sys.path.insert(0, _backdoor_vault_path)
+
+# Import from BackdoorVault explicitly
+from BackdoorVault.dfst import DFST
+from BackdoorVault.dataset import PoisonDataset
 
 
 def get_dfst_paths(dataset):
