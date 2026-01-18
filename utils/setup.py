@@ -1,4 +1,5 @@
 import copy  
+import os
 import torch
 import numpy as np 
 
@@ -47,8 +48,9 @@ def setup_model_dataset(args, if_train_set=False):
         train_number = 35326  # 90% of 39252
         normalization = NormalizeByChannelMeanStd(
             mean=[0.3403, 0.3121, 0.3214], std=[0.2724, 0.2608, 0.2669])
+        gtsrb_data_dir = os.path.join(args.data, 'GTSRB')
         train_set_loader, val_loader, test_loader = gtsrb_dataloaders(
-            batch_size=args.batch_size, data_dir=args.data, dataset=if_train_set, split_file=args.split_file)
+            batch_size=args.batch_size, data_dir=gtsrb_data_dir, dataset=if_train_set, split_file=args.split_file)
 
     else:
         raise ValueError('unknown dataset')
