@@ -174,8 +174,10 @@ def convert_dfst_to_prac_checkpoint(args, device):
     # Add normalization as attribute (same as setup.py does)
     target_model.normalize = NormalizeByChannelMeanStd(mean=mean, std=std)
     
-    # Use DFST state dict directly (same model structure from models/ folder)
-    new_state_dict = dfst_state
+    # Build state dict with normalization parameters
+    new_state_dict = dict(dfst_state)
+    new_state_dict['normalize.mean'] = torch.tensor(mean)
+    new_state_dict['normalize.std'] = torch.tensor(std)
     
     # Verify the state dict can be loaded
     try:
