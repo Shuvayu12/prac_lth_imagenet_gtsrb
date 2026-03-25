@@ -390,6 +390,10 @@ def train(trainset, model, criterion, optimizer, epoch, sequence):
         image = image.cuda()
         target = target.cuda()
 
+        # Normalize once for all paths (clean/poison) when model provides stats.
+        if hasattr(model, 'normalize'):
+            image = model.normalize(image)
+
         # compute output
         output_clean = model(image)
         loss = criterion(output_clean, target)
@@ -440,6 +444,10 @@ def validate(val_loader, model, criterion):
         image = image.cuda()
         target = target.cuda()
 
+        # Normalize once for all paths (clean/poison) when model provides stats.
+        if hasattr(model, 'normalize'):
+            image = model.normalize(image)
+
         # compute output
         with torch.no_grad():
             output = model(image)
@@ -480,6 +488,10 @@ def validate_PIE(val_loader, model, criterion):
         
         image = image.cuda()
         target = target.cuda()
+
+        # Normalize once for all paths (clean/poison) when model provides stats.
+        if hasattr(model, 'normalize'):
+            image = model.normalize(image)
 
         # compute output
         with torch.no_grad():

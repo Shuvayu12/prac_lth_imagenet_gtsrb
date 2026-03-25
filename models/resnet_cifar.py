@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 from .resnet import BasicBlock, conv3x3
 

@@ -37,9 +37,10 @@ class DFST:
             inputs: Input tensor batch
             
         Returns:
-            Normalized style-transferred images (on same device as input)
+            Style-transferred images (on same device as input)
         """
         original_device = inputs.device
         inputs = inputs.to(self.device)
-        output = self.normalize(self.genr_a2b(inputs))
+        # Keep output in image space; model forward handles normalization.
+        output = self.genr_a2b(inputs)
         return output.to(original_device)
