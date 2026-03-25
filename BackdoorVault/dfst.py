@@ -41,6 +41,8 @@ class DFST:
         """
         original_device = inputs.device
         inputs = inputs.to(self.device)
-        # Keep output in image space; model forward handles normalization.
-        output = self.genr_a2b(inputs)
+        # Generator was trained with normalized inputs.
+        gen_input = self.normalize(inputs)
+        # Keep output in image space; downstream pipeline handles normalization once.
+        output = self.genr_a2b(gen_input)
         return output.to(original_device)
