@@ -29,7 +29,7 @@ class Attack:
         base_path = f'ckpt/{args.dataset}_{args.network}'
         genr_path = f'{base_path}_dfst_generator.pt'
         if os.path.exists(genr_path):
-            self.backdoor.genr_a2b = torch.load(genr_path, map_location=self.device)
+            self.backdoor.genr_a2b = torch.load(genr_path, map_location=self.device, weights_only = False)
 
         # Setup optimizers for DFST CycleGAN components
         self.optim_genr_a2b = torch.optim.Adam(
