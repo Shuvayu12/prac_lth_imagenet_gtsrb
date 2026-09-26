@@ -196,6 +196,19 @@ def main():
         start_state = 0
         sequence = np.load(args.split_file)[:train_number]
 
+    # Baseline: evaluate the loaded DFST model BEFORE any clean-data training touches it.
+    # Without this, the first reported ASR is measured after a full epoch of clean SGD at args.lr,
+    # which by itself can erase the backdoor and makes the pruning effect unmeasurable.
+    if args.dfst and poison_loader is not None and not args.resume:
+        print('--- Baseline (untouched DFST model, before any training) ---')
+        base_ta = validate(test_loader, model, criterion)
+        base_asr = validate(poison_loader, model, criterion)
+        print(f'[DFST] Baseline clean test acc: {base_ta:.3f}%   Baseline ASR: {base_asr:.3f}%')
+        all_result['baseline_test_ta'] = base_ta
+        all_result['baseline_asr'] = base_asr
+        if base_asr < 50:
+            print('[DFST] WARNING: baseline ASR is low -> the poison pipeline is broken; fix that before pruning.')
+
     print('######################################## Start Standard Training Iterative Pruning ########################################')
 
     for state in range(start_state, args.pruning_times):
