@@ -42,6 +42,7 @@ parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--resume', action="store_true", help="resume from checkpoint")
 parser.add_argument('--checkpoint', type=str, default=None, help='checkpoint file')
 parser.add_argument('--dfst', action="store_true", help="Enable DFST backdoor ASR evaluation")
+parser.add_argument('--workers', type=int, default=4, help='dataloader workers for the PrAC training loop')
 
 ##################################### training setting #################################################
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
@@ -74,6 +75,7 @@ def main():
     print(args)
 
     torch.cuda.set_device(int(args.gpu))
+    cudnn.benchmark = True
     os.makedirs(args.save_dir, exist_ok=True)
     if args.seed:
         setup_seed(args.seed)
@@ -359,6 +361,19 @@ def main():
 
         example_wise_prediction = []
 
+class _IndexedSubset(torch.utils.data.Dataset):
+    """Subset that also returns the original dataset index (needed for forgetting stats)."""
+    def __init__(self, dataset, indices):
+        self.dataset = dataset
+        self.indices = np.asarray(indices)
+    def __len__(self):
+        return len(self.indices)
+    def __getitem__(self, i):
+        idx = int(self.indices[i])
+        img, tgt = self.dataset[idx]
+        return img, tgt, idx
+
+
 def train(trainset, model, criterion, optimizer, epoch, sequence):
     
     losses = AverageMeter()
@@ -382,26 +397,22 @@ def train(trainset, model, criterion, optimizer, epoch, sequence):
     if (image_number/batch_size) > iteration_steps:
         iteration_steps+=1
 
+    # Multi-worker loader over the PrAC subset: image decoding/augmentation runs in
+    # worker processes and overlaps with GPU compute instead of blocking the main loop.
+    loader = torch.utils.data.DataLoader(
+        _IndexedSubset(trainset, trainset_permutation_inds),
+        batch_size=batch_size, shuffle=False, num_workers=args.workers,
+        pin_memory=True, drop_last=False, persistent_workers=False)
+
     start = time.time()
-    for batch_idx, batch_start_ind in enumerate(
-            range(0, image_number, batch_size)):
+    for batch_idx, (image, target, batch_inds) in enumerate(loader):
 
         if epoch < args.warmup:
             warmup_lr(epoch, batch_idx+1, optimizer, one_epoch_step=iteration_steps)
 
-        # get batch inputs and targets, transform them appropriately
-        batch_inds = trainset_permutation_inds[batch_start_ind:
-                                            batch_start_ind + batch_size]
-
-        transformed_trainset = []
-        for ind in batch_inds:
-            transformed_trainset.append(trainset.__getitem__(ind)[0])
-        image = torch.stack(transformed_trainset)
-        target = torch.LongTensor(
-            np.array(trainset.targets)[batch_inds].tolist())
-        
-        image = image.cuda()
-        target = target.cuda()
+        batch_inds = batch_inds.numpy()
+        image = image.cuda(non_blocking=True)
+        target = target.cuda(non_blocking=True)
 
         # Normalize once for all paths (clean/poison) when model provides stats.
         if hasattr(model, 'normalize'):
@@ -417,9 +428,8 @@ def train(trainset, model, criterion, optimizer, epoch, sequence):
 
         # update statistic
         predicted = torch.argmax(output_clean.data, 1)
-        acc = (predicted == target)
-        for j, index in enumerate(batch_inds):
-            all_acc_train[index,0] = acc[j]
+        acc = (predicted == target).cpu().numpy()
+        all_acc_train[batch_inds, 0] = acc
 
         output = output_clean.float()
         loss = loss.float()

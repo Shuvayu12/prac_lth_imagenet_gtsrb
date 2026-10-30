@@ -108,19 +108,36 @@ def setup_poison_loader(args, device):
     else:
         raise ValueError(f'Unknown dataset: {args.dataset}')
     
-    # Create poison dataset (100% poison rate for ASR evaluation)
-    poison_dataset = PoisonDataset(
-        dataset=test_set,
-        target=0,  # Target class 0
-        data_rate=1.0,
-        poison_rate=1.0,
-        processing=(normalize, unnormalize),
-        backdoor=backdoor
-    )
-    
+    # Precompute the poisoned test set ONCE on the GPU.
+    # PoisonDataset.__getitem__ would run the CycleGAN on single images inside the
+    # dataloader (num_workers=0), i.e. 12k tiny GPU calls + CPU<->GPU copies per epoch.
+    # The generator is frozen and deterministic in eval mode, so we can materialise the
+    # whole poisoned set as one GPU tensor and evaluate ASR with a plain forward pass.
+    target = 0  # Target class 0
+    gen = backdoor.genr_a2b
+    gen.eval()
+    clean_loader = torch.utils.data.DataLoader(
+        test_set, batch_size=256, shuffle=False, num_workers=4, pin_memory=True)
+    poisoned, labels = [], []
+    with torch.no_grad():
+        for x, y in clean_loader:
+            y = torch.as_tensor(y)
+            keep = y != target                      # ASR excludes target-class samples
+            if keep.sum() == 0:
+                continue
+            x = x[keep].to(device, non_blocking=True)
+            # Same chain as DFST.inject: generator expects normalized input, emits image space.
+            out = gen(normalize(x))
+            poisoned.append(out)
+            labels.append(torch.full((out.size(0),), target, dtype=torch.long, device=device))
+    poisoned = torch.cat(poisoned)
+    labels = torch.cat(labels)
+    print(f'[DFST] Precomputed poisoned test set on {device}: {tuple(poisoned.shape)}')
+
+    poison_dataset = torch.utils.data.TensorDataset(poisoned, labels)
     poison_loader = torch.utils.data.DataLoader(
         poison_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
-    
+
     return poison_loader
 
 
