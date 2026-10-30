@@ -42,6 +42,7 @@ parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--resume', action="store_true", help="resume from checkpoint")
 parser.add_argument('--checkpoint', type=str, default=None, help='checkpoint file')
 parser.add_argument('--dfst', action="store_true", help="Enable DFST backdoor ASR evaluation")
+parser.add_argument('--rewind_eval', action="store_true", help="evaluate each rewound ticket (init weights + new mask) before retraining")
 parser.add_argument('--workers', type=int, default=4, help='dataloader workers for the PrAC training loop')
 
 ##################################### training setting #################################################
@@ -336,8 +337,23 @@ def main():
         if state:
             remove_prune(model)
         model.load_state_dict(initalization)
-        prune_model_custom(model, epoch_mask)   
-        check_sparsity(model)                 
+        prune_model_custom(model, epoch_mask)
+        remain_weight = check_sparsity(model)
+
+        # Attribution eval for pruning-as-defense: the model here is the rewind init
+        # (with --dfst + lt, the backdoored DFST weights) with only the new mask applied,
+        # so any ASR drop below the baseline is caused by pruning alone, not retraining.
+        if args.rewind_eval:
+            print('--- Rewound ticket eval (state {}, {:.2f}% weights remain, before retraining) ---'.format(state+1, remain_weight))
+            rewind_ta = validate(test_loader, model, criterion)
+            all_result['rewind_ta'] = rewind_ta
+            all_result['rewind_remain_weight'] = remain_weight
+            if args.dfst and poison_loader is not None:
+                rewind_asr = validate(poison_loader, model, criterion)
+                all_result['rewind_asr'] = rewind_asr
+                print('[DFST] rewound ticket: clean TA = {:.3f}%   ASR = {:.3f}%'.format(rewind_ta, rewind_asr))
+            else:
+                print('* rewound ticket: clean TA = {:.3f}%'.format(rewind_ta))
 
         # construct PrAC sets
         example_wise_prediction = np.concatenate(example_wise_prediction, axis=1)
