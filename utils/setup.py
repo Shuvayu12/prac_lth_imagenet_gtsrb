@@ -125,7 +125,7 @@ def setup_model_dataset_PIE(args):
         normalization = NormalizeByChannelMeanStd(
             mean=[0.3403, 0.3121, 0.3214], std=[0.2724, 0.2608, 0.2669])
         train_loader = gtsrb_dataloaders_val(
-            batch_size=args.batch_size, data_dir=args.data, split_file=args.split_file)
+            batch_size=args.batch_size, data_dir=os.path.join(args.data, 'GTSRB'), split_file=args.split_file)
 
     else:
         raise ValueError('unknown dataset')
