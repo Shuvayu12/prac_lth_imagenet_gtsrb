@@ -43,6 +43,7 @@ parser.add_argument('--resume', action="store_true", help="resume from checkpoin
 parser.add_argument('--checkpoint', type=str, default=None, help='checkpoint file')
 parser.add_argument('--dfst', action="store_true", help="Enable DFST backdoor ASR evaluation")
 parser.add_argument('--rewind_eval', action="store_true", help="evaluate each rewound ticket (init weights + new mask) before retraining")
+parser.add_argument('--eb_pretrained', action="store_true", help="early-bird bookkeeping for a pretrained init: record mask distances from the first epoch and use the conv-only parameter count for state-0 distances")
 parser.add_argument('--workers', type=int, default=4, help='dataloader workers for the PrAC training loop')
 
 ##################################### training setting #################################################
@@ -199,6 +200,12 @@ def main():
         start_state = 0
         sequence = np.load(args.split_file)[:train_number]
 
+    # With a pretrained init the mask is stable from epoch 1, so the distance never
+    # exceeds eb_eps and the start_record gate of the EB trigger would never open;
+    # every state would run its full epoch budget.
+    if args.eb_pretrained:
+        start_record = True
+
     # Baseline: evaluate the loaded DFST model BEFORE any clean-data training touches it.
     # Without this, the first reported ASR is measured after a full epoch of clean SGD at args.lr,
     # which by itself can erase the backdoor and makes the pruning effect unmeasurable.
@@ -328,7 +335,7 @@ def main():
 
         best_sa = 0
         start_epoch = 0
-        start_record = False
+        start_record = args.eb_pretrained
         remain_para = cnt_remain_para(epoch_mask)
         distance_queue = torch.ones(args.queue_length)
         last_mask = None

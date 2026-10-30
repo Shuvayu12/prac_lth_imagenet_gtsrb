@@ -220,6 +220,13 @@ def convert_dfst_to_prac_checkpoint(args, device):
         optimizer, milestones=decreasing_lr, gamma=0.1
     )
     
+    # Hamming distances divide by remain_para, and masks cover conv weights only, so
+    # counting every state-dict tensor (BN, fc, buffers) deflates state-0 distances.
+    if getattr(args, 'eb_pretrained', False):
+        remain_para = sum(m.weight.nelement() for m in target_model.modules() if isinstance(m, nn.Conv2d))
+    else:
+        remain_para = sum(v.numel() for v in new_state_dict.values() if isinstance(v, torch.Tensor))
+
     # Build checkpoint in PrAC-LTH format
     checkpoint = {
         'state': 0,
@@ -232,7 +239,7 @@ def convert_dfst_to_prac_checkpoint(args, device):
         'init_weight': deepcopy(new_state_dict),
         'prediction': [],
         'sequence': sequence,
-        'remain_para': sum(v.numel() for v in new_state_dict.values() if isinstance(v, torch.Tensor)),
+        'remain_para': remain_para,
         'distance_queue': torch.ones(args.queue_length),
         'last_mask': None,
         'start_record': False
